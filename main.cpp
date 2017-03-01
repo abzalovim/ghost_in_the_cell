@@ -50,10 +50,16 @@ public:
 class Command{
 public:
 	int oper; //0-get;1-upgr;2-bomb;3-defence;4-antibomb;5-move to front
+	int from;
 	int target;
-	Command(int o, int t){
-		oper=o;
-		target=t;
+	int counter;
+	int guard;
+	Command(int o, int f, int t, int g, int c){
+		oper   =o;
+		from   =f;
+		target =t;
+		counter=c;
+		guard  =g;
 	}
 };
 
@@ -66,7 +72,7 @@ private:
 	int ds[MAX_PLANET][MAX_PLANET];
 	Planet all_p[MAX_PLANET];
 	vector<int> my_p,en_p,ne_p;
-	vector<Command> cm
+	vector<Command> cm;
 public:
 	Solution(int fC){
 		state=0;
@@ -156,16 +162,17 @@ public:
 		for(auto i:v_val){
 			int id=i.second;
 			if(v_need[id].second+cnt<sz){
+				cnt+=v_need[id].second;
 				tgt=v_need[id].first;
 				if(tgt==my_planet){
-					Command c(1,tgt);
+					Command c(1,0,tgt,0,0);
 					cm.push_back(c);
 				}
 				else{
-					Command c(0,tgt);
+					Command c(0,my_planet,tgt,v_need[id].second,0);
 					cm.push_back(c);
 					if(v_need[id].second>all_p[tgt].cur){
-						Command c(1,tgt);
+						Command c(1,0,tgt,0,ds[my_planet][tgt]);
 						cm.push_back(c);
 					}
 				}
@@ -183,7 +190,26 @@ public:
 		
 	}
 	void out(){
+		int cnt=0;
+		vector<int> passed;
+		for(auto i=cm.begin();i!=cm.end();i++){
+			//cerr<<"command "<<i->oper<<" counter "<<i->counter<<endl;
+			if(i.counter==0){
+				passed.push_back(cnt);
+				switch(i->oper){
+					case 0 :
+						cout<<"MOVE "<<i->from<<" "<<i->target<<" "<<i->guard<<";";
+						break;
+					case 1 :
+						cout<<"INC "<<i->target<<";";
+						break;
+				}
+			}
+			else i->counter--;
+			cnt++;
+		}
 		cout<<"WAIT"<<endl;
+		for(auto i=passed.rbegin();i!=passed.rend();i++) cm.erase(cm.begin()+*i);
 	}
 	void calc(){
 		switch(state){
