@@ -1,6 +1,7 @@
 #include <iostream>
 #include <string>
 #include <vector>
+#include <set>
 #include <algorithm>
 
 using namespace std;
@@ -72,6 +73,10 @@ private:
 	int ds[MAX_PLANET][MAX_PLANET];
 	Planet all_p[MAX_PLANET];
 	vector<int> my_p,en_p,ne_p;
+	
+	vector<Troop> all_t;
+	vector<int> my_t,en_t,ne_t;
+	
 	vector<Command> cm;
 public:
 	Solution(int fC){
@@ -159,6 +164,7 @@ public:
 		sort(v_val.rbegin(),v_val.rend());
 		int cnt=0,tgt;
 		int sz=all_p[my_planet].cur;
+		set<int> tgused;
 		for(auto i:v_val){
 			int id=i.second;
 			if(v_need[id].second+cnt<sz){
@@ -169,15 +175,19 @@ public:
 					cm.push_back(c);
 				}
 				else{
-					Command c(0,my_planet,tgt,v_need[id].second,0);
-					cm.push_back(c);
-					if(v_need[id].second>all_p[tgt].cur){
-						Command c(1,0,tgt,0,ds[my_planet][tgt]);
+					if(tgused.find(tgt)==tgused.end()){
+						tgused.insert(tgt);
+						Command c(0,my_planet,tgt,v_need[id].second,0);
 						cm.push_back(c);
+						if(v_need[id].second>all_p[tgt].cur){
+							Command c(1,0,tgt,0,ds[my_planet][tgt]+1);
+							cm.push_back(c);
+						}
 					}
 				}
 			}
 		}
+		state=1;
 		//cerr<<v_val[0].first<<":"<<v_val[0].second<<"-"<<v_need[v_val[0].second].first<<"-"<<v_need[v_val[0].second].second<<endl;
 	}
 	void debut(){
@@ -194,7 +204,7 @@ public:
 		vector<int> passed;
 		for(auto i=cm.begin();i!=cm.end();i++){
 			//cerr<<"command "<<i->oper<<" counter "<<i->counter<<endl;
-			if(i.counter==0){
+			if(i->counter==0){
 				passed.push_back(cnt);
 				switch(i->oper){
 					case 0 :
