@@ -47,20 +47,13 @@ public:
     }
 };
 
-class User{
+class Command{
 public:
-	int bombs;
-	vector<Planet> pl;
-	vector<Troop> tr;
-	User(){
-		bombs=2;
-	}
-	void init(){
-		pl.clear();
-		tr.clear();
-	}
-	void add_pl(int c, int g){
-		
+	int oper; //0-get;1-upgr;2-bomb;3-defence;4-antibomb;5-move to front
+	int target;
+	Command(int o, int t){
+		oper=o;
+		target=t;
 	}
 };
 
@@ -73,11 +66,13 @@ private:
 	int ds[MAX_PLANET][MAX_PLANET];
 	Planet all_p[MAX_PLANET];
 	vector<int> my_p,en_p,ne_p;
+	vector<Command> cm
 public:
 	Solution(int fC){
 		state=0;
 		plan =0;
 		factoryCount = fC;
+		cm.clear();
 		for(int i=0;i<factoryCount;i++)
 			for(int j=0;j<factoryCount;j++)
 			{
@@ -113,10 +108,10 @@ public:
 		for(auto i : my_p){
 			for(int j=0;j<factoryCount;j++){
 				int d1,d2;
-				d1=ds[*i][j];
+				d1=ds[i][j];
 				d2=9999;
 				for(auto k : en_p)
-					d2=min(d2,ds[*k][j]);
+					d2=min(d2,ds[k][j]);
 				if(d1<d2-3)all_p[j].marker=0;// my zone
 				else if(d2<d1-3)all_p[j].marker=10; //enemy
 				else if(d1<d2)
@@ -131,7 +126,52 @@ public:
 	}
 	void get_plan(){
 		create_markers();
-		if()
+		
+		vector<pair<int,int>> v_val,  v_need;
+		int t_id=0,t_need,t_val;
+		int my_planet=my_p[0];
+		int deep=ds[my_planet][en_p[0]];
+		for(int i=0;i<factoryCount;i++){
+			if((all_p[i].marker==0)&&(all_p[i].boss==0)){
+				t_need=all_p[i].cur+1;
+				t_val=1+(deep-ds[my_planet][i])*all_p[i].gen-t_need;
+				v_need.push_back(make_pair(i,t_need));
+				v_val.push_back(make_pair(t_val,t_id++));
+				if(all_p[i].gen<3){
+					v_need.push_back(make_pair(i,t_need+9));
+					t_val=1+(deep-ds[my_planet][i])*(all_p[i].gen+1)-t_need;
+					v_val.push_back(make_pair(t_val,t_id++));
+				}
+			}
+		}
+		if(all_p[my_planet].gen<3){
+			t_need=10;
+			t_val=deep*(all_p[my_planet].gen+1)-10;
+			v_need.push_back(make_pair(my_planet,t_need));
+			v_val.push_back(make_pair(t_val,t_id++));
+		}
+		sort(v_val.rbegin(),v_val.rend());
+		int cnt=0,tgt;
+		int sz=all_p[my_planet].cur;
+		for(auto i:v_val){
+			int id=i.second;
+			if(v_need[id].second+cnt<sz){
+				tgt=v_need[id].first;
+				if(tgt==my_planet){
+					Command c(1,tgt);
+					cm.push_back(c);
+				}
+				else{
+					Command c(0,tgt);
+					cm.push_back(c);
+					if(v_need[id].second>all_p[tgt].cur){
+						Command c(1,tgt);
+						cm.push_back(c);
+					}
+				}
+			}
+		}
+		//cerr<<v_val[0].first<<":"<<v_val[0].second<<"-"<<v_need[v_val[0].second].first<<"-"<<v_need[v_val[0].second].second<<endl;
 	}
 	void debut(){
 		
