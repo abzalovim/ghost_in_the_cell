@@ -2,12 +2,15 @@
 #include <string>
 #include <vector>
 #include <set>
+#include <map>
 #include <algorithm>
 
 using namespace std;
 
 #define MAX_PLANET 15
-
+#define KEY1 100000000
+#define KEY2 1000000
+#define KEY3 100
 /**
  * Auto-generated code below aims at helping you parse
  * the standard input according to the problem statement.
@@ -50,7 +53,7 @@ public:
 
 class Command{
 public:
-	int oper; //0-get;1-upgr;2-bomb;3-defence;4-antibomb;5-move to front;10-enemy waiting
+	int oper; //0-get;1-upgr;2-bomb;3-defence;4-antibomb;5-move to front;10-waiting enemy moves
 	int from;
 	int target;
 	int counter;
@@ -64,6 +67,12 @@ public:
 	}
 };
 
+class Plan{
+public:
+	set<int> enemy_hsh;
+	int rating;
+};
+
 class Solution{
 private:
 	int state; //0-init, 1-debut, 2-mid, 3-end
@@ -72,12 +81,15 @@ private:
 	int factoryCount;
 	int ds[MAX_PLANET][MAX_PLANET];
 	Planet all_p[MAX_PLANET];
+	Plan plans[MAX_PLANET];
 	vector<int> my_p,en_p,ne_p;
 	
 	vector<Troop> all_t;
 	vector<int> my_t,en_t,ne_t;
 	
-	vector<Command> cm;
+	vector<Troop> bombs;
+	
+	vector<Command> cm,ce;
 public:
 	Solution(int fC){
 		state=0;
@@ -111,7 +123,9 @@ public:
 		else en_t.push_back(tt_id);
 	}
 	void add_bomb(int b, int f, int t, int r){
-		
+		Troop bmb(b,f,t,0,r);
+		cerr<<"BOMBA "<<b<<" "<<f<<" "<<t<<" "<<r<<endl;
+		bombs.push_back(bmb);
 	}
 	void init(){
 		pl_id=0;
@@ -121,6 +135,7 @@ public:
 		all_t.clear();
 		my_t.clear();
 		en_t.clear();
+		bombs.clear();
 	}
 	//------------------------------------------logic------------------------------------------
 	void create_markers(){
@@ -209,9 +224,40 @@ public:
 		//cerr<<v_val[0].first<<":"<<v_val[0].second<<"-"<<v_need[v_val[0].second].first<<"-"<<v_need[v_val[0].second].second<<endl;
 	}
 	void debut(){
+		set<int> attacked;
 		//analize previous command
+
+		//analize enemy bombs
+		for(auto i:bombs){
+			if(i.boss==-1){
+				
+			}
+		}
 		//analize enemy troops
+		for(auto i:en_t){
+			int hsh=all_t[i].from*KEY1+all_t[i].to*KEY2+all_t[i].cur*KEY3+all_t[i].rem;
+			int t=all_t[i].to;
+			if(all_p[t].marker<10){
+				Plan p=plans[t];
+				if(p.enemy_hsh.find(hsh)==p.enemy_hsh.end()){
+					attacked.insert(t);
+					p.enemy_hsh.insert(hsh);
+				}
+			}
+		}
 		//create new command
+		for(auto i : attacked){
+			int rating=0;//To-Do!!!
+		}
+		//finally steps
+		for(auto i : plans){
+			vector<int> passed;
+			for(int j=0;j<i.enemy_hsh.size();j++){
+				if(i.enemy_hsh[j]%100==0) passed.push_back(j);
+				else i.enemy_hsh[j]--;
+			}
+			for(auto i=passed.rbegin();i!=passed.rend();i++) i.enemy_hsh.erase(cm.begin()+*i);
+		}
 	}
 	void defence(){
 		
