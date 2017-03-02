@@ -39,7 +39,7 @@ public:
     int to;
     int cur;
     int rem;
-    void init(int b, int f, int t, int c, int r){
+    Troop(int b, int f, int t, int c, int r){
         boss=b;
         from=f;
         to  =t;
@@ -50,7 +50,7 @@ public:
 
 class Command{
 public:
-	int oper; //0-get;1-upgr;2-bomb;3-defence;4-antibomb;5-move to front
+	int oper; //0-get;1-upgr;2-bomb;3-defence;4-antibomb;5-move to front;10-enemy waiting
 	int from;
 	int target;
 	int counter;
@@ -103,7 +103,12 @@ public:
 		pl_id++;
 	}
 	void add_troop(int b, int f, int t, int c, int r){
+		Troop tt(b,f,t,c,r);
+		int tt_id=all_t.size();
+		all_t.push_back(tt);
 		
+		if(b==1)my_t.push_back(tt_id);
+		else en_t.push_back(tt_id);
 	}
 	void add_bomb(int b, int f, int t, int r){
 		
@@ -113,6 +118,9 @@ public:
 		m_cnt=0;
 		e_cnt=0;
 		n_cnt=0;
+		all_t.clear();
+		my_t.clear();
+		en_t.clear();
 	}
 	//------------------------------------------logic------------------------------------------
 	void create_markers(){
@@ -123,15 +131,19 @@ public:
 				d2=9999;
 				for(auto k : en_p)
 					d2=min(d2,ds[k][j]);
-				if(d1<d2-3)all_p[j].marker=0;// my zone
-				else if(d2<d1-3)all_p[j].marker=10; //enemy
+				if(d1<d2-3)all_p[j].marker=0;										// my zone
+				else if(d2<d1-3)all_p[j].marker=10; 								//enemy
 				else if(d1<d2)
-					if((all_p[j].base_gen>1)&&(all_p[j].cur>6))all_p[j].marker=1;//my opt
-					else all_p[j].marker=2;//my nw
+					if(all_p[j].base_gen>1)
+						if(all_p[j].cur>6)all_p[j].marker=2;						//my problem
+						else all_p[j].marker=1;										//my optimal
+					else all_p[j].marker=3;											//my nw
 				else if(d2>d1)
-					if((all_p[j].base_gen>1)&&(all_p[j].cur>6))all_p[j].marker=11;//en opt
-					else all_p[j].marker=12;//en nw
-				else all_p[j].marker=100;
+					if(all_p[j].base_gen>1)
+						if(all_p[j].cur>6)all_p[j].marker=12;						//en problem
+						else all_p[j].marker=11;									//en optimal
+					else all_p[j].marker=13;										//en nw
+				else all_p[j].marker=100;											//mediane
 			}
 		}
 	}
@@ -142,6 +154,12 @@ public:
 		int t_id=0,t_need,t_val;
 		int my_planet=my_p[0];
 		int deep=ds[my_planet][en_p[0]];
+		if(deep<7){
+			Command c(10,0,0,0,1);
+			cm.push_back(c);
+			return;
+			// waiting enemy move
+		}
 		for(int i=0;i<factoryCount;i++){
 			if((all_p[i].marker==0)&&(all_p[i].boss==0)){
 				t_need=all_p[i].cur+1;
@@ -191,7 +209,9 @@ public:
 		//cerr<<v_val[0].first<<":"<<v_val[0].second<<"-"<<v_need[v_val[0].second].first<<"-"<<v_need[v_val[0].second].second<<endl;
 	}
 	void debut(){
-		
+		//analize previous command
+		//analize enemy troops
+		//create new command
 	}
 	void defence(){
 		
