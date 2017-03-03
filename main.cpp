@@ -122,8 +122,11 @@ public:
 			my_p.push_back(pl_id);
 			all_p[pl_id].marker=0;
 		}
-		else if(b==-1)en_p.push_back(pl_id);
-		else ne_p.push_back(pl_id);
+		else {
+			reserved[pl_id]=0;
+			if(b==-1)en_p.push_back(pl_id);
+			else ne_p.push_back(pl_id);
+		}
 		pl_id++;
 	}
 	void add_troop(int b, int f, int t, int c, int r){
@@ -220,32 +223,24 @@ public:
 		set<int> tgused;
 		for(auto i:v_val){
 			int id=i.second;
-			cerr<<v_need[id].second<<"+"<<cnt<<"<"<<sz;
 			if(v_need[id].second+cnt<sz){
-				cerr<<" -> entered"<<endl;
 				cnt+=v_need[id].second;
 				tgt=v_need[id].first;
 				if(tgt==my_planet){
 					Command c(1,0,tgt,0,0);
-					cerr<<"u1:chnged reserv on "<<tgt<<" from "<<reserved[tgt];
 					reserved[tgt]+=10;
-					cerr<<" to "<<reserved[tgt]<<endl;
 					cm.push_back(c);
 				}
 				else{
 					if(tgused.find(tgt)==tgused.end()){
 						tgused.insert(tgt);
 						Command c(0,my_planet,tgt,v_need[id].second,0);
-						cerr<<"chnged reserv on "<<my_planet<<" from "<<reserved[my_planet];
 						reserved[my_planet]+=v_need[id].second;
-						cerr<<" to "<<reserved[my_planet]<<endl;
 						cm.push_back(c);
 						if(v_need[id].second>=all_p[tgt].cur+10){
 							Command c(1,0,tgt,0,ds[my_planet][tgt]+1);
 							cm.push_back(c);
-							cerr<<"u2:chnged reserv on "<<tgt<<" from "<<reserved[tgt];
 							reserved[tgt]=10;
-							cerr<<" to "<<reserved[tgt]<<endl;
 						}
 					}
 				}
@@ -299,10 +294,11 @@ public:
 			int hsh=all_t[i].from*KEY1+all_t[i].to*KEY2+all_t[i].cur*KEY3+all_t[i].rem;
 			int t=all_t[i].to;
 			if(all_p[t].marker<10||all_p[t].marker==12){
-				Plan p=plans[t];
-				if(p.enemy_hsh.find(hsh)==p.enemy_hsh.end()){
+				Plan *p=&plans[t];
+				if(p->enemy_hsh.find(hsh)==p->enemy_hsh.end()){
 					attacked.insert(t);
-					p.enemy_hsh.insert(hsh);
+					p->enemy_hsh.insert(hsh);
+					reserved[t]+=all_t[i].cur;
 				}
 			}
 		}
@@ -324,7 +320,7 @@ public:
 							need=0-future[i][st]+all_p[i].base_gen;
 							change_step++;
 						}
-					}else cerr<<"needed: "<<need<<" step:"<<change_step<<" resesrv: "<<reserved[i]<<endl;
+					}else cerr<<"in "<<i<<" needed: "<<need<<" step:"<<change_step<<" reserv: "<<reserved[i]<<endl;
 					break;
 				}
 			}
@@ -411,7 +407,7 @@ public:
 										cnt=min(cnt,future[j][k]);
 								}
 								cnt=min(cnt,need);
-								Command c(0,j,i,cnt,change_step-ds[i][j]-1);
+								Command c(0,j,i,cnt,0);
 								ccc.push_back(c);
 								need-=cnt;
 								for(int k=0;k<MAX_LEN;k++){
@@ -439,33 +435,92 @@ public:
 						}
 					}
 				}
-				if(need>0)all_p[i].marker=10;
+				if(need>0){
+					all_p[i].marker=10;
+					reserved[i]=0;
+				}
 				else{
 					for(auto c : ccc){
 						cm.push_back(c);
-						cerr<<"chnged reserv on "<<c.from<<" from "<<reserved[c.from];
 						reserved[c.from]+=c.guard;
-						cerr<<" to "<<reserved[c.from]<<endl;
 					}
 				}
 			}
 		}
 		//create new command
 		for(auto i : my_p){
-			if(all_p[i].marker<10||all_p[i].marker==11){
+			if(1==1||all_p[i].marker<10||all_p[i].marker==11){
 				int cnt=all_p[i].cur-reserved[i];
 				if(cnt>0){
-					
+					cerr<<"in "<<i<<" free "<<cnt<<endl;
+					int mdist=9999;
+					int tgt_id=-1;
+					int m_added=-9999;
+					int c_added=m_added;
+					int m_count=0;
+					for(int j=0;j<factoryCount;j++){
+						if(j==i&&all_p[j].base_gen<3&&cnt>=10){
+							c_added=2;
+						}
+						else{
+							int dst=ds[i][j];
+							if(future[j][dst]>KEY1-1){
+								if(cnt>future[j][dst]-KEY1+10)c_added=(all_p[j].base_gen+1)*(12-dst)-10-(future[j][dst]-KEY1);
+								else if(cnt>future[j][dst]-KEY1&&all_p[j].base_gen>0)c_added=(all_p[j].base_gen)*(12-dst)-(future[j][dst]-KEY1);
+							}
+							else{
+								if(future[j][dst]>0){
+									if (all_p[j].base_gen<3){
+										if(cnt+future[j][dst]-reserved[j]>=10)c_added=(all_p[j].base_gen+1)*(12-dst)-10;
+									}
+								}
+								else{
+									if(cnt+future[j][dst]-reserved[j]>10)c_added=2*(all_p[j].base_gen+1)*(12-dst)-10;
+									else if(cnt+future[j][dst]-reserved[j]>0)c_added=2*(all_p[j].base_gen)*(12-dst);
+								}
+							}
+						}
+						if(c_added>m_added){
+							m_added=c_added;
+							tgt_id=j;
+							mdist =ds[i][j];
+							m_count=cnt;
+						}
+					}
+					if(tgt_id!=-1){
+						cerr<<"create command from "<<i<<" to "<<tgt_id<<" count "<<m_count<<" price: "<<m_added<<endl;
+						if(tgt_id==i){
+							Command c(1,0,tgt_id,0,0);
+							cm.push_back(c);
+							reserved[tgt_id]+=10;
+						}
+						else{
+							Command c(0,i,tgt_id,m_count,0);
+							reserved[i]+=m_count;
+							cm.push_back(c);
+							if(m_count+future[tgt_id][mdist]-reserved[tgt_id]>=10){
+								Command c(1,0,tgt_id,0,mdist+1);
+								cm.push_back(c);
+								reserved[tgt_id]+=10;
+							}
+						}
+					}
 				}
 			}
 		}
 		//finally steps
-		for(auto i : plans){
+		for(int i=0;i<factoryCount;i++){
 			set<int> nhsh;
-			for(auto j : i.enemy_hsh){
-				if(j%100!=0) nhsh.insert(j-1);
+			for(auto j : plans[i].enemy_hsh){
+				if(j%KEY3!=0) {
+					nhsh.insert(j-1);
+				}
+				else
+					reserved[i]-=(j%KEY2)/KEY3;
 			}
-			i.enemy_hsh=nhsh;
+			plans[i].enemy_hsh.clear();
+			for(auto j: nhsh)
+				plans[i].enemy_hsh.insert(j);
 		}
 	}
 	void defence(){
@@ -483,17 +538,17 @@ public:
 				passed.push_back(cnt);
 				switch(i->oper){
 					case 0 :
-						cerr<<"-chnged reserv on "<<i->from<<" from "<<reserved[i->from];
+						cerr<<"unreserve 0: "<<i->from<<" from "<<reserved[i->from];
 						reserved[i->from]-=i->guard;
-						cerr<<" to "<<reserved[i->from]<<endl;
-						if(all_p[i->from].boss!=1||all_p[i->from].cur<i->guard)break;
+						cerr<<"to "<<reserved[i->from]<<endl;
+						if(all_p[i->from].boss!=1||all_p[i->from].cur<i->guard||i->guard<=0)break;
 						cout<<"MOVE "<<i->from<<" "<<i->target<<" "<<i->guard<<";";
 						break;
 					case 1 :
-						cerr<<"-chnged reserv on "<<i->target<<" from "<<reserved[i->target];
+						if(all_p[i->target].boss!=1||all_p[i->target].cur<10||all_p[i->target].base_gen>2)break;
+						cerr<<"unreserve 1: "<<i->target<<" from "<<reserved[i->target];
 						reserved[i->target]-=10;
-						cerr<<" to "<<reserved[i->target]<<endl;
-						if(all_p[i->target].boss!=1||all_p[i->target].cur<10)break;
+						cerr<<"to "<<reserved[i->target]<<endl;
 						cout<<"INC "<<i->target<<";";
 						break;
 				}
