@@ -429,6 +429,15 @@ public:
 						}
 						if(need==0) break;
 					}
+					if(need>0){
+						for(auto j : my_p){
+							if(i!=j&&all_p[j].cur>future[i][ds[i][j]]&&need>0){
+								need=0;
+								Command c(0,j,i,all_p[j].cur,0);
+								ccc.push_back(c);
+							}
+						}
+					}
 				}
 				if(need>0)all_p[i].marker=10;
 				else{
@@ -442,6 +451,14 @@ public:
 			}
 		}
 		//create new command
+		for(auto i : my_p){
+			if(all_p[i].marker<10||all_p[i].marker==11){
+				int cnt=all_p[i].cur-reserved[i];
+				if(cnt>0){
+					
+				}
+			}
+		}
 		//finally steps
 		for(auto i : plans){
 			set<int> nhsh;
@@ -466,15 +483,17 @@ public:
 				passed.push_back(cnt);
 				switch(i->oper){
 					case 0 :
-						cout<<"MOVE "<<i->from<<" "<<i->target<<" "<<i->guard<<";";
 						cerr<<"-chnged reserv on "<<i->from<<" from "<<reserved[i->from];
 						reserved[i->from]-=i->guard;
 						cerr<<" to "<<reserved[i->from]<<endl;
+						if(all_p[i->from].boss!=1||all_p[i->from].cur<i->guard)break;
+						cout<<"MOVE "<<i->from<<" "<<i->target<<" "<<i->guard<<";";
 						break;
 					case 1 :
 						cerr<<"-chnged reserv on "<<i->target<<" from "<<reserved[i->target];
 						reserved[i->target]-=10;
 						cerr<<" to "<<reserved[i->target]<<endl;
+						if(all_p[i->target].boss!=1||all_p[i->target].cur<10)break;
 						cout<<"INC "<<i->target<<";";
 						break;
 				}
