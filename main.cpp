@@ -8,6 +8,7 @@
 using namespace std;
 
 #define MAX_PLANET 15
+#define MAX_LEN 20
 #define KEY1 100000000
 #define KEY2 1000000
 #define KEY3 100
@@ -81,19 +82,27 @@ private:
 	int factoryCount;
 	int ds[MAX_PLANET][MAX_PLANET];
 	Planet all_p[MAX_PLANET];
+	int reserved[MAX_PLANET];
 	Plan plans[MAX_PLANET];
 	vector<int> my_p,en_p,ne_p;
 	
 	vector<Troop> all_t;
 	vector<int> my_t,en_t,ne_t;
+	int to_planet_troop[MAX_PLANET][MAX_LEN];
+	int future[MAX_PLANET][MAX_LEN];
 	
 	vector<Troop> bombs;
 	
 	vector<Command> cm,ce;
+	int my_bomb, en_bomb;
+	int turn;
 public:
 	Solution(int fC){
+		turn=1;
 		state=0;
 		plan =0;
+		my_bomb=2;
+		en_bomb=2;
 		factoryCount = fC;
 		cm.clear();
 		for(int i=0;i<factoryCount;i++)
@@ -109,7 +118,10 @@ public:
 	} 
 	void add_planet(int b, int c, int g){
 		all_p[pl_id].init(b,c,g);
-		if(b==1)my_p.push_back(pl_id);
+		if(b==1){
+			my_p.push_back(pl_id);
+			all_p[pl_id].marker=0;
+		}
 		else if(b==-1)en_p.push_back(pl_id);
 		else ne_p.push_back(pl_id);
 		pl_id++;
@@ -118,7 +130,7 @@ public:
 		Troop tt(b,f,t,c,r);
 		int tt_id=all_t.size();
 		all_t.push_back(tt);
-		
+		to_planet_troop[t][r]+=c*b;
 		if(b==1)my_t.push_back(tt_id);
 		else en_t.push_back(tt_id);
 	}
@@ -135,7 +147,14 @@ public:
 		all_t.clear();
 		my_t.clear();
 		en_t.clear();
+		my_p.clear();
+		en_p.clear();
 		bombs.clear();
+		for(int i=0;i<factoryCount;i++)
+			for(int j=0;j<MAX_LEN;j++){
+				to_planet_troop[i][j]=0;
+				future[i][j]=0;
+			}
 	}
 	//------------------------------------------logic------------------------------------------
 	void create_markers(){
@@ -175,6 +194,7 @@ public:
 			return;
 			// waiting enemy move
 		}
+		deep=min(deep,12);
 		for(int i=0;i<factoryCount;i++){
 			if((all_p[i].marker==0)&&(all_p[i].boss==0)){
 				t_need=all_p[i].cur+1;
@@ -200,25 +220,37 @@ public:
 		set<int> tgused;
 		for(auto i:v_val){
 			int id=i.second;
+			cerr<<v_need[id].second<<"+"<<cnt<<"<"<<sz;
 			if(v_need[id].second+cnt<sz){
+				cerr<<" -> entered"<<endl;
 				cnt+=v_need[id].second;
 				tgt=v_need[id].first;
 				if(tgt==my_planet){
 					Command c(1,0,tgt,0,0);
+					cerr<<"u1:chnged reserv on "<<tgt<<" from "<<reserved[tgt];
+					reserved[tgt]+=10;
+					cerr<<" to "<<reserved[tgt]<<endl;
 					cm.push_back(c);
 				}
 				else{
 					if(tgused.find(tgt)==tgused.end()){
 						tgused.insert(tgt);
 						Command c(0,my_planet,tgt,v_need[id].second,0);
+						cerr<<"chnged reserv on "<<my_planet<<" from "<<reserved[my_planet];
+						reserved[my_planet]+=v_need[id].second;
+						cerr<<" to "<<reserved[my_planet]<<endl;
 						cm.push_back(c);
-						if(v_need[id].second>all_p[tgt].cur){
+						if(v_need[id].second>=all_p[tgt].cur+10){
 							Command c(1,0,tgt,0,ds[my_planet][tgt]+1);
 							cm.push_back(c);
+							cerr<<"u2:chnged reserv on "<<tgt<<" from "<<reserved[tgt];
+							reserved[tgt]=10;
+							cerr<<" to "<<reserved[tgt]<<endl;
 						}
 					}
 				}
 			}
+			else cerr<<endl;
 		}
 		state=1;
 		//cerr<<v_val[0].first<<":"<<v_val[0].second<<"-"<<v_need[v_val[0].second].first<<"-"<<v_need[v_val[0].second].second<<endl;
@@ -226,7 +258,36 @@ public:
 	void debut(){
 		set<int> attacked;
 		//analize previous command
-
+		int bs[factoryCount];
+		for(int i=0;i<factoryCount;i++){
+			future[i][0]=all_p[i].cur;
+			bs[i]=all_p[i].boss;
+			if(bs[i]==0)future[i][0]+=KEY1;
+		}
+		for(int i=0;i<factoryCount;i++)
+			for(int j=1;j<MAX_LEN;j++){
+				future[i][j]=future[i][j-1]+bs[i]*all_p[i].base_gen;
+				if(bs[i]==0){
+					if(to_planet_troop[i][j]>0){
+						future[i][j]-=to_planet_troop[i][j];
+					}
+					else{
+						future[i][j]+=to_planet_troop[i][j];
+					}
+					if(future[i][j]<KEY1){
+						future[i][j]-=KEY1;
+						if(to_planet_troop[i][j]>0){
+							future[i][j]*=-1;
+							bs[i]=1;
+						}
+						else bs[i]=-1;
+					}
+				}
+				else{
+					future[i][j]+=to_planet_troop[i][j];
+					if(bs[i]*future[i][j]<0)bs[i]*=-1;
+				}
+			}
 		//analize enemy bombs
 		for(auto i:bombs){
 			if(i.boss==-1){
@@ -237,7 +298,7 @@ public:
 		for(auto i:en_t){
 			int hsh=all_t[i].from*KEY1+all_t[i].to*KEY2+all_t[i].cur*KEY3+all_t[i].rem;
 			int t=all_t[i].to;
-			if(all_p[t].marker<10){
+			if(all_p[t].marker<10||all_p[t].marker==12){
 				Plan p=plans[t];
 				if(p.enemy_hsh.find(hsh)==p.enemy_hsh.end()){
 					attacked.insert(t);
@@ -245,18 +306,149 @@ public:
 				}
 			}
 		}
-		//create new command
 		for(auto i : attacked){
-			int rating=0;//To-Do!!!
+			cerr<<"attacked "<<i<<endl;
+			int cur=all_p[i].cur;
+			int cb =all_p[i].boss;
+			int need=0,cbo;
+			int change_step=-1;
+			for(int st=0;st<MAX_LEN;st++){
+				if(future[i][st]<0){
+					change_step=st;
+					cbo=1;
+					need=0-future[i][st]+reserved[i];
+					if(future[i][st-1]>KEY1-1){
+						cbo=0;
+						need=future[i][st-1]-KEY1+1;
+						if(need>=2){
+							need=0-future[i][st]+all_p[i].base_gen;
+							change_step++;
+						}
+					}else cerr<<"needed: "<<need<<" step:"<<change_step<<" resesrv: "<<reserved[i]<<endl;
+					break;
+				}
+			}
+			if(change_step>=0){
+				vector<Command> ccc;
+				int variation;
+				int src,cnt,mdst;
+				if(cbo==0){
+					if(need<2){
+						for(auto j : my_p){
+							if(ds[i][j]<change_step){
+								cnt=all_p[j].cur-reserved[j];
+								if(cnt>0){
+									for(int k=0;k<MAX_LEN;k++){
+										if(future[j][k]>0)
+											cnt=min(cnt,future[j][k]);
+									}
+									cnt=min(cnt,need);
+									Command c(0,j,i,cnt,change_step-ds[i][j]-1);
+									ccc.push_back(c);
+									need-=cnt;
+									for(int k=0;k<MAX_LEN;k++){
+										future[j][k]-=cnt;
+										if(k>=change_step-1){
+											if(future[i][k-1]>KEY1-1){
+												future[i][k]=cnt-(future[i][k]-KEY1);
+											}
+											else{
+												future[i][k]=future[i][k-1]+all_p[i].base_gen+to_planet_troop[i][k];
+											}
+										}
+									}
+								}
+							}
+							if(need==0) break;
+						}
+					}
+					else{
+						for(auto j : my_p){
+							if(ds[i][j]<change_step){
+								cnt=all_p[j].cur-reserved[j];
+								if(cnt>0){
+									for(int k=0;k<MAX_LEN;k++){
+										if(future[j][k]>0)
+											cnt=min(cnt,future[j][k]);
+									}
+									cnt=min(cnt,need);
+									Command c(0,j,i,cnt,change_step-ds[i][j]);
+									ccc.push_back(c);
+									need-=cnt;
+									for(int k=0;k<MAX_LEN;k++){
+										future[j][k]-=cnt;
+										if(k>=change_step-1){
+											if(future[i][k-1]>KEY1-1){
+												future[i][k]=cnt-(future[i][k]-KEY1);
+											}
+											else{
+												future[i][k]=future[i][k-1]+all_p[i].base_gen+to_planet_troop[i][k];
+											}
+										}
+									}
+								}
+							}
+							if(need==0) break;
+						}
+					}
+					if(need>0){
+						for(auto j : my_p){
+							if(all_p[j].cur>future[i][ds[i][j]]&&need>0){
+								need=0;
+								Command c(0,j,i,all_p[j].cur,0);
+								ccc.push_back(c);
+							}
+						}
+					}
+				}
+				else{
+					for(auto j : my_p){
+						if(i!=j&&ds[i][j]<change_step){
+							cnt=all_p[j].cur-reserved[j];
+							if(cnt>0){
+								for(int k=0;k<MAX_LEN;k++){
+									if(future[j][k]>0)
+										cnt=min(cnt,future[j][k]);
+								}
+								cnt=min(cnt,need);
+								Command c(0,j,i,cnt,change_step-ds[i][j]-1);
+								ccc.push_back(c);
+								need-=cnt;
+								for(int k=0;k<MAX_LEN;k++){
+									future[j][k]-=cnt;
+									if(k>=change_step-1){
+										if(future[i][k-1]>KEY1-1){
+											future[i][k]=cnt-(future[i][k]-KEY1);
+										}
+										else{
+											future[i][k]=future[i][k-1]+all_p[i].base_gen+to_planet_troop[i][k];
+										}
+									}
+								}
+							}
+						}
+						if(need==0) break;
+					}
+				}
+				if(need>0)all_p[i].marker=10;
+				else{
+					for(auto c : ccc){
+						cm.push_back(c);
+						cerr<<"chnged reserv on "<<c.from<<" from "<<reserved[c.from];
+						reserved[c.from]+=c.guard;
+						cerr<<" to "<<reserved[c.from]<<endl;
+					}
+				}
+			}
 		}
+		//create new command
 		//finally steps
 		for(auto i : plans){
-			vector<int> passed;
-			for(int j=0;j<i.enemy_hsh.size();j++){
-				if(i.enemy_hsh[j]%100==0) passed.push_back(j);
-				else i.enemy_hsh[j]--;
+			set<int> nhsh;
+			for(auto j : i.enemy_hsh){
+				if(j%100!=0) nhsh.insert(j-1);
 			}
-			for(auto i=passed.rbegin();i!=passed.rend();i++) i.enemy_hsh.erase(cm.begin()+*i);
+			i.enemy_hsh=nhsh;
 		}
 	}
 	void defence(){
@@ -275,8 +467,14 @@ public:
 				switch(i->oper){
 					case 0 :
 						cout<<"MOVE "<<i->from<<" "<<i->target<<" "<<i->guard<<";";
+						cerr<<"-chnged reserv on "<<i->from<<" from "<<reserved[i->from];
+						reserved[i->from]-=i->guard;
+						cerr<<" to "<<reserved[i->from]<<endl;
 						break;
 					case 1 :
+						cerr<<"-chnged reserv on "<<i->target<<" from "<<reserved[i->target];
+						reserved[i->target]-=10;
+						cerr<<" to "<<reserved[i->target]<<endl;
 						cout<<"INC "<<i->target<<";";
 						break;
 				}
@@ -286,6 +484,10 @@ public:
 		}
 		cout<<"WAIT"<<endl;
 		for(auto i=passed.rbegin();i!=passed.rend();i++) cm.erase(cm.begin()+*i);
+		turn++;
+		for(int i=0;i<factoryCount;i++){
+			if(reserved[i]>0)cerr<<"planet:"<<i<<" reserv:"<<reserved[i]<<endl;
+		}
 	}
 	void calc(){
 		switch(state){
