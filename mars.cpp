@@ -86,15 +86,11 @@ public:
         Shuttle rez;
         double pw=(abs(ipw-power)>1 ? (ipw<power ? power-1 : power+1) : ipw);
         int ang=rotate-d_ang;
-        //cerr<<"X:"<<X<<" sp:"<<hSpeed<<" ang:"<<ang<<" sin:"<<sin(PI*ang/180)<<" d_x: "<< pw*100*sin(PI*ang/180)/2<<endl;
         int nx=(X+hSpeed+(int)(pw*100*(m_sin.get(ang)/MUL)/2));
         int vx=(hSpeed+(pw*100*(m_sin.get(ang)/MUL)));
         int ny=(Y+vSpeed+(int)((pw*100*(m_sin.getc(ang)/MUL)-gM)/2));
         int vy=vSpeed+(int)(pw*100*(m_sin.getc(ang)/MUL)-gM);
-        //cerr<<"from x:"<<X<<" with ang "<<ang<<" and pow: "<<ipw<<" to x:"<<nx<<endl;
-        //cerr<<"dX:"<<X+hSpeed<<" dvX:"<<(pw*sin(ang/PI)/2)<<endl;
-        //cerr<<"dY:"<<Y+vSpeed<<" dvY:"<<(pw*cos(ang/PI)-gM)/2<<endl;
-        //cerr<<"X:"<<nx<<" vX:"<<vx<<" Y:"<<ny<<" vY:"<<vy<<endl;
+        
         rez.init(nx,ny,vx,vy,fuel-ipw,ang,ipw);
         return rez;
     }
@@ -102,8 +98,8 @@ public:
 
 class Graph{
 private:
-    const int MaxVx=2000;
-    const int MaxVy=4000;
+    const int MaxVx=1800;
+    const int MaxVy=3800;
     const double gMars=371.1;
     map<int,vector<Shuttle>> steps;
     vector<int> sx,sy;
@@ -150,87 +146,24 @@ public:
         }
     }
     
-    int get_cost(Shuttle sh1, Shuttle sh2){
-        if(sh2.getX()>=ml1+1000&&sh2.getX()<=ml2-1000&&sh2.getY()<=my&&sh2.Possible()) return WIN;
-        if(abs(sh2.getAngle())>90)return -1;
-        if(sh2.getX()<0||sh2.getX()>700000||sh2.getY()>300000) return -1;
-        pt sf_start,sf_end,sh_start, sh_end;
-        sh_start.x=sh1.getX();
-        sh_start.y=sh1.getY();
-        sh_end.x=sh2.getX();
-        sh_end.y=sh2.getY();
-        sf_start.x=sx[0];
-        sf_start.y=sy[0];
-        for(int it=1;it<surfaceN;it++){
-            sf_end.x=sx[it];
-            sf_end.y=sy[it];
-            if(intersect(sh_start,sh_end,sf_start,sf_end))return -1;
-            sf_start=sf_end;
-        }
-        int n_x=sh2.getX()-(ml2+ml1)/2;
-        int n_y=sh2.getY()-my;
-        //cerr<<"dx,dy="<<sh2.getX()<<"-"<<(ml2+ml1)/2<<"="<<n_x<<","<<n_y<<" cost:"<<(int)(5000000-sqrt(pow(n_x,2)*3+pow(n_y,2)))<<endl;
-        return (5000000-sqrt(pow(n_x,2)*3+pow(n_y,2)));
-    }
-    
-    void next_stage(Shuttle sh, int step,int d_a, int pw){
-        Shuttle nxt=sh;
-        //cerr<<"testing ang "<<d_a<<" pw "<<pw<<endl;
-        nxt=nxt.next(d_a,pw,gMars,m_sin);
-        
-        for(int it=0;it<2;it++)
-            nxt=nxt.next(0,pw,gMars,m_sin);
-        //cerr<<"x changed from:"<<sh.getX()<<" to "<<nxt.getX()<<endl;
-        int cost=get_cost(sh,nxt);
-        if(cost<0) return;
-        if(cost>=WIN){
-            cerr<<"p_WIN cost:"<<cost<<" a:"<<c_a<<" pw:"<<c_p<<endl;
-            max_cost=cost;
-            rez_a=nomad.getAngle()-c_a;
-            rez_p=c_p;
-        }
-        if(step<3){
-            for(int n_a=-15;n_a<=15;n_a+=5){
-                next_stage(nxt,step+1,n_a,0);
-                next_stage(nxt,step+1,n_a,4);
-            }
-        }
-        else{
-            if(cost>max_cost){
-                //cerr<<"["<<nxt.getX()<<","<<nxt.getY()<<"]"<<endl;
-                //cerr<<"p cost:"<<cost<<" a:"<<c_a<<" pw:"<<c_p<<endl;
-                max_cost=cost;
-                rez_a=nomad.getAngle()-c_a;
-                rez_p=c_p;
-            }
-            if(c_a==15){
-                if(cost>m_c15){
-                    //cerr<<"15/["<<nxt.getX()<<","<<nxt.getY()<<"]"<<endl;
-                    m_c15=cost;
-                    //cerr<<"15: "<<m_c15<<endl;
-                }
-            }
-        }
-        if(step==0)cerr<<"passed:"<<d_a<<endl;
-    }
-    
     void compare(int X,int Y,int hSpeed,int vSpeed,int fuel,int rotate,int power){
         //cerr<<test.getX()-X<<":"<<test.getY()-Y<<endl;
         if(abs(nomad.getX()-X+nomad.getY()-Y)>300)
             nomad.init(X,Y,hSpeed,vSpeed,fuel,rotate,power);
-        max_cost=-1;
-        m_c15=-1;
-        int step=0;
-        for(int d_a=-15;d_a<=15;d_a+=5){
-            c_a=d_a;
-            c_p=0;
-            next_stage(nomad,step,d_a,0);
-            c_p=4;
-            next_stage(nomad,step,d_a,4);
-        }
+
+        int t, ny, cx, cy;
         
-        cerr<<"it cost:"<<max_cost<<endl;
-        //test=nomad.next(-15,1,gMars);
+        if(abs(hSpeed)>MaxVx){
+			//Надо притормозить
+			rez_p=4;
+			rez_a=30;
+			if(hSpeed<0){
+				rez_a=-30;
+			}
+			return;
+		}
+		rez_p =(abs(vSpeed)>MaxVy ? 4 : 3);
+		rez_a=0;
     }
     void first(int X,int Y,int hSpeed,int vSpeed,int fuel,int rotate,int power){
         nomad.init(X,Y,hSpeed,vSpeed,fuel,rotate,power);
@@ -239,10 +172,9 @@ public:
         //cerr<<"passed!"<<endl;
     }
     
-    pair<int,int> out(){
-        cerr<<rez_a<<"-=-"<<rez_p<<endl;
+    void out(){
         nomad=nomad.next(rez_a,rez_p,gMars,m_sin);
-        return make_pair(rez_a,rez_p);
+        cout<<rez_a<<" "<<rez_p<<endl;
     }
     
 };
@@ -285,7 +217,6 @@ int main()
 
 
         // rotate power. rotate is the desired rotation angle. power is the desired thrust power.
-        pair<int,int> rez=sl.out();
-        cout << rez.first<< " " << rez.second << endl;
+        sl.out();
     }
 }
