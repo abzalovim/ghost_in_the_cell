@@ -8,6 +8,7 @@
 #define PI 3.14159265
 #define WIN 10000000
 #define MUL 10000
+#define LL long long
 
 using namespace std;
 
@@ -57,15 +58,15 @@ bool intersect (pt a, pt b, pt c, pt d) {
 
 class Shuttle{
 private:
-    int X;
-    int Y;
+    LL X;
+    LL Y;
     int hSpeed;
     int vSpeed;
     int fuel;
     int rotate;
     int power;
 public:
-    void init(int p1,int p2, int p3, int p4, int p5, int p6, int p7){
+    void init(LL p1,LL p2, int p3, int p4, int p5, int p6, int p7){
         X=p1;
         Y=p2;
         hSpeed=p3;
@@ -73,22 +74,24 @@ public:
         fuel=p5;
         rotate=p6;
         power=p7;
+        //cerr<<"init Y:"<<Y<<endl;
     }
     
     int getAngle() {return rotate;}
-    int getX() {return X;}
-    int getY() {return Y;}
+    LL getX() {return X;}
+    LL getY() {return Y;}
     int getVX() {return hSpeed;}
     int getVY() {return vSpeed;}
-    bool Possible(){return abs(hSpeed)<=20&&abs(vSpeed)<=40;}
+    bool Possible(){return abs(hSpeed)<=2000&&abs(vSpeed)<=4000;}
     
-    Shuttle next(int d_ang, int ipw, double gM, Mt m_sin){
+    Shuttle next(int n_ang, int ipw, double gM, Mt m_sin){
         Shuttle rez;
         double pw=(abs(ipw-power)>1 ? (ipw<power ? power-1 : power+1) : ipw);
-        int ang=rotate-d_ang;
-        int nx=(X+hSpeed+(int)(pw*100*(m_sin.get(ang)/MUL)/2));
+        int d_ang=min(15,abs(rotate-n_ang));
+        int ang=(rotate>n_ang ? rotate-d_ang : rotate+n_ang);
+        LL nx=(X+hSpeed+(int)(pw*100*(m_sin.get(ang)/MUL)/2));
         int vx=(hSpeed+(pw*100*(m_sin.get(ang)/MUL)));
-        int ny=(Y+vSpeed+(int)((pw*100*(m_sin.getc(ang)/MUL)-gM)/2));
+        LL ny=(Y+vSpeed+(int)((pw*100*(m_sin.getc(ang)/MUL)-gM)/2));
         int vy=vSpeed+(int)(pw*100*(m_sin.getc(ang)/MUL)-gM);
         
         rez.init(nx,ny,vx,vy,fuel-ipw,ang,ipw);
@@ -112,6 +115,8 @@ private:
     int rez_a,rez_p,c_a,c_p,max_cost;
     int m_c15;
     Mt m_sin;
+    LL lft[7000],rgt[7000];
+    int i_lft,i_rgt;
 public:
     void init(int sN){
         surfaceN=sN;
@@ -119,10 +124,18 @@ public:
         sy.resize(sN);
         it=0;
         m_sin.init();
+        i_lft=7000;
+        i_rght=0;
     }
     void add_point(int landX, int landY){
         landX*=100;
         landY*=100;
+        if(it>0){
+            for(int xx=sx[it-1]/100;xx<landX/100;xx++){
+                lft[xx]=sy[it-1]+500;
+                rgt[xx]=landY+500;
+            }
+        }
         sx[it]=landX;sy[it]=landY;
         it++;
         if(old_x>=0){
@@ -146,27 +159,50 @@ public:
         }
     }
     
-    void compare(int X,int Y,int hSpeed,int vSpeed,int fuel,int rotate,int power){
+    void compare(LL X,LL Y,int hSpeed,int vSpeed,int fuel,int rotate,int power){
         //cerr<<test.getX()-X<<":"<<test.getY()-Y<<endl;
         if(abs(nomad.getX()-X+nomad.getY()-Y)>300)
             nomad.init(X,Y,hSpeed,vSpeed,fuel,rotate,power);
 
-        int t, ny, cx, cy;
+        int t1, t2, ny, cx, cy;
+        
+        t1=(vSpeed > 4000 ? (vSpeed-4000)/(400-gMars) : (4000-vSpeed)/gMars);
+        
         
         if(abs(hSpeed)>MaxVx){
 			//Надо притормозить
 			rez_p=4;
-			rez_a=30;
+			rez_a=60;
 			if(hSpeed<0){
-				rez_a=-30;
+				rez_a=-60;
 			}
 			return;
 		}
 		rez_p =(abs(vSpeed)>MaxVy ? 4 : 3);
 		rez_a=0;
     }
-    void first(int X,int Y,int hSpeed,int vSpeed,int fuel,int rotate,int power){
+    void first(LL X,LL Y,int hSpeed,int vSpeed,int fuel,int rotate,int power){
+        Shuttle n;
+        cerr<<"start in "<<Y<<endl;
         nomad.init(X,Y,hSpeed,vSpeed,fuel,rotate,power);
+        int sch=0;
+        vector<int> ti1,an1,po1,ti2,an2,po2,ti3,an3,po3;
+        for(int p=0;p<5;p++){
+			for(int a=-90;a<=90;a+=15){
+			    n.init(X,Y,hSpeed,vSpeed,fuel,rotate,power);
+			    //cerr<<"start: "<<sch<<"=>"<<n.getX()<<":"<<n.getY()<<" "<<a<<" "<<p<<endl;
+				int t=0;
+				while(t<80){
+				    t++;
+					sch++;
+					n=n.next(a, p, gMars, m_sin);
+					LL xx=n.getX();
+					LL yy=n.getY();
+				}
+				cerr<<sch<<"=>"<<n.getX()<<":"<<n.getY()<<" "<<a<<" "<<p<<endl;
+			}
+		}
+		//cerr<<1/0;
         compare(X,Y,hSpeed,vSpeed,fuel,rotate,power);
         //test=nomad.next(-15,1,gMars);
         //cerr<<"passed!"<<endl;
