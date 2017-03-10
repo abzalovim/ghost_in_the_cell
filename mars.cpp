@@ -101,6 +101,14 @@ public:
     }
 };
 
+class Leaf{
+public:
+    int parent_id;
+    Shuttle n;
+    int angle;
+    int power;
+};
+
 class Graph{
 private:
     const int MaxVx=1800;
@@ -117,8 +125,7 @@ private:
     int rez_a,rez_p,c_a,c_p,max_cost;
     int m_c15;
     Mt m_sin;
-    LL lft[7000],rgt[7000];
-    int i_lft,i_rgt;
+    LL alt[7000];
     LL cc1,cc2,cc3;
 public:
     void init(int sN){
@@ -127,16 +134,13 @@ public:
         sy.resize(sN);
         it=0;
         m_sin.init();
-        i_lft=7000;
-        i_rgt=0;
     }
     void add_point(int landX, int landY){
         landX*=100;
         landY*=100;
         if(it>0){
             for(int xx=sx[it-1]/100;xx<landX/100;xx++){
-                lft[xx]=sy[it-1]+500;
-                rgt[xx]=landY+500;
+                alt[xx]=sy[it-1]+(xx*100-sx[it-1])*(landY-sy[it-1])/(landX-sx[it-1])+500;
             }
         }
         sx[it]=landX;sy[it]=landY;
@@ -213,7 +217,27 @@ public:
 			}
 		}
     }
+    
+    void found_way(vector<Leaf>* g, int st_id){
+        Leaf l = (*g)[st_id];
+        int power=l.power;
+        int rotate=l.angle;
+        for(int p=max(0,power-1);p<=min(4,power+1);p++)
+            for(int a=max(-90,rotate-15);a<=min(90,rotate+15);a+=5){
+            }
+    }
+    
     void first(LL X,LL Y,int hSpeed,int vSpeed,int fuel,int rotate,int power){
+        vector<Leaf> graph;
+        nomad.init(X,Y,hSpeed,vSpeed,fuel,rotate,power);
+        int id=0;
+        Leaf l;
+        l.n=nomad;
+        l.parent_id=id;
+        l.angle = rotate;
+        l.power = power;
+        graph.push_back(l);
+        found_way(&graph,0);
         compare(X,Y,hSpeed,vSpeed,fuel,rotate,power);
     }
     
