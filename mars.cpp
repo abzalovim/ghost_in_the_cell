@@ -6,7 +6,7 @@
 #include <algorithm>
 
 #define PI 3.14159265
-#define WIN 10000000
+#define WIN -10000000
 #define MUL 10000
 #define LL long long
 
@@ -18,20 +18,21 @@ using namespace std;
  **/
  
 class Mt{
-    int angles[34];
-    int anglesc[34];
+    int angles[36];
+    int anglesc[36];
     public:
         void init(){
-            for(int a=-85;a<=85;a+=5){
-                angles[(85+a)/5]=sin(PI*a/180)*MUL;
-                anglesc[(85+a)/5]=cos(PI*a/180)*MUL;
+            for(int a=-90;a<=90;a+=5){
+                angles[(90+a)/5]=sin(PI*a/180)*MUL;
+                anglesc[(90+a)/5]=cos(PI*a/180)*MUL;
             }
         }
         int get(int a){
-            return angles[(85+a)/5];
+            //cerr<<"sin("<<a<<")="<<angles[(90+a)/5]<<endl;
+            return angles[(90+a)/5];
         }
         int getc(int a){
-            return anglesc[(85+a)/5];
+            return anglesc[(90+a)/5];
         }
 };
 
@@ -88,11 +89,12 @@ public:
         Shuttle rez;
         double pw=(abs(ipw-power)>1 ? (ipw<power ? power-1 : power+1) : ipw);
         int d_ang=min(15,abs(rotate-n_ang));
-        int ang=(rotate>n_ang ? rotate-d_ang : rotate+n_ang);
-        LL nx=(X+hSpeed+(int)(pw*100*(m_sin.get(ang)/MUL)/2));
-        int vx=(hSpeed+(pw*100*(m_sin.get(ang)/MUL)));
-        LL ny=(Y+vSpeed+(int)((pw*100*(m_sin.getc(ang)/MUL)-gM)/2));
-        int vy=vSpeed+(int)(pw*100*(m_sin.getc(ang)/MUL)-gM);
+        int ang=(rotate>n_ang ? rotate-d_ang : rotate+d_ang);
+        LL nx=(X+hSpeed+(int)(((pw*100*(m_sin.get(-ang))/MUL)/2)));
+        int vx=(hSpeed+((pw*100*m_sin.get(-ang))/MUL));
+        //cerr<<"vx:"<<hSpeed<<"+(("<<pw<<"*100*"<<m_sin.get(ang)<<")/"<<MUL<<")) = "<<vx<<endl;
+        LL ny=(Y+vSpeed+(int)(((pw*100*m_sin.getc(-ang))/MUL)-gM)/2);
+        int vy=vSpeed+(int)(((pw*100*m_sin.getc(-ang))/MUL)-gM);
         
         rez.init(nx,ny,vx,vy,fuel-ipw,ang,ipw);
         return rez;
@@ -117,6 +119,7 @@ private:
     Mt m_sin;
     LL lft[7000],rgt[7000];
     int i_lft,i_rgt;
+    LL cc1,cc2,cc3;
 public:
     void init(int sN){
         surfaceN=sN;
@@ -125,7 +128,7 @@ public:
         it=0;
         m_sin.init();
         i_lft=7000;
-        i_rght=0;
+        i_rgt=0;
     }
     void add_point(int landX, int landY){
         landX*=100;
@@ -158,54 +161,60 @@ public:
             }
         }
     }
-    
+    LL get_cost(Shuttle n){
+		LL _x=n.getX();
+		LL _y=n.getY();
+		LL _vx=n.getVX();
+		LL _vy=n.getVY();
+		LL avx=abs(_vx);
+		LL avy=abs(_vy);
+		
+		if(_x<=ml2-4500&&_x>=ml1+4500&&_y<=my&&avx<=1900&&avy<=3900) return WIN;
+		LL _mid_x=(ml1+ml2)/2;
+		_x+=_vx*15;
+		LL cost1=sqrt(((_x-_mid_x)*(_x-_mid_x)+(_y-my)*(_y-my)/5))*5;
+		if((_x<ml1&&_vx<=0)||(_x>ml2&&_vx>=0)) avx+=100000;
+		LL cost2=(avx>2000 ? 1.5*avx : avx);
+		LL cost3=(avy>4000 ? (avy>4400 ? 2500*avy : 2*avy) : avy);
+		cc1=cost1;
+		cc2=cost2;
+		cc3=cost3;
+		return cost1+cost2+cost3;
+	}
+	
     void compare(LL X,LL Y,int hSpeed,int vSpeed,int fuel,int rotate,int power){
-        //cerr<<test.getX()-X<<":"<<test.getY()-Y<<endl;
-        if(abs(nomad.getX()-X+nomad.getY()-Y)>300)
-            nomad.init(X,Y,hSpeed,vSpeed,fuel,rotate,power);
-
-        int t1, t2, ny, cx, cy;
-        
-        t1=(vSpeed > 4000 ? (vSpeed-4000)/(400-gMars) : (4000-vSpeed)/gMars);
-        
-        
-        if(abs(hSpeed)>MaxVx){
-			//Надо притормозить
-			rez_p=4;
-			rez_a=60;
-			if(hSpeed<0){
-				rez_a=-60;
+        Shuttle n;
+        if(X<=ml2-4500&&X>=ml1+4500&&Y<=my+15000&&abs(hSpeed)<=1900&&abs(vSpeed)<=3900){
+            rez_p=(abs(vSpeed)>3000 ? 4 : 3);
+            rez_a=0;
+            return;
+        }
+        LL cost=-10*WIN;
+        rez_p=0;
+        rez_a=-90;
+        for(int p=max(0,power-1);p<=min(4,power+1);p++){
+			for(int a=max(-90,rotate-15);a<=min(90,rotate+15);a+=5){
+			    n.init(X,Y,hSpeed,vSpeed,fuel,rotate,power);
+				cerr<<"##"<<a<<":"<<p<<"=("<<n.getX()<<":"<<n.getY()<<") ";
+			    n=n.next(a, p, gMars, m_sin);
+			    cerr<<" st:1 "<<n.getX()<<":"<<n.getY()<<" V "<<n.getVX()<<":"<<n.getVY()<<endl;
+				n=n.next(a, p, gMars, m_sin);
+			    cerr<<" st:2 "<<n.getX()<<":"<<n.getY()<<" V "<<n.getVX()<<":"<<n.getVY()<<endl;
+				n=n.next(a, p, gMars, m_sin);
+			    cerr<<" st:3 "<<n.getX()<<":"<<n.getY()<<" V "<<n.getVX()<<":"<<n.getVY()<<endl;
+				LL n_cost=get_cost(n);
+				cerr<<cc1<<"+"<<cc2<<"+"<<cc3<<"="<<n_cost<<endl;
+				if(n_cost<cost){
+					cost = n_cost;
+					rez_a= a;
+					rez_p= p;
+					cerr<<a<<":"<<p<<" => "<<cc1<<"+"<<cc2<<"+"<<cc3<<"="<<n_cost<<endl;
+				}
 			}
-			return;
 		}
-		rez_p =(abs(vSpeed)>MaxVy ? 4 : 3);
-		rez_a=0;
     }
     void first(LL X,LL Y,int hSpeed,int vSpeed,int fuel,int rotate,int power){
-        Shuttle n;
-        cerr<<"start in "<<Y<<endl;
-        nomad.init(X,Y,hSpeed,vSpeed,fuel,rotate,power);
-        int sch=0;
-        vector<int> ti1,an1,po1,ti2,an2,po2,ti3,an3,po3;
-        for(int p=0;p<5;p++){
-			for(int a=-90;a<=90;a+=15){
-			    n.init(X,Y,hSpeed,vSpeed,fuel,rotate,power);
-			    //cerr<<"start: "<<sch<<"=>"<<n.getX()<<":"<<n.getY()<<" "<<a<<" "<<p<<endl;
-				int t=0;
-				while(t<80){
-				    t++;
-					sch++;
-					n=n.next(a, p, gMars, m_sin);
-					LL xx=n.getX();
-					LL yy=n.getY();
-				}
-				cerr<<sch<<"=>"<<n.getX()<<":"<<n.getY()<<" "<<a<<" "<<p<<endl;
-			}
-		}
-		//cerr<<1/0;
         compare(X,Y,hSpeed,vSpeed,fuel,rotate,power);
-        //test=nomad.next(-15,1,gMars);
-        //cerr<<"passed!"<<endl;
     }
     
     void out(){
