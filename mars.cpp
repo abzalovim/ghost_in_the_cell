@@ -219,12 +219,23 @@ public:
     }
     
     void found_way(vector<Leaf>* g, int st_id){
-        Leaf l = (*g)[st_id];
-        int power=l.power;
-        int rotate=l.angle;
-        for(int p=max(0,power-1);p<=min(4,power+1);p++)
-            for(int a=max(-90,rotate-15);a<=min(90,rotate+15);a+=5){
-            }
+        int sz=(*g).size();
+        for(int j=st_id;j<sz;j++){
+            Leaf l = (*g)[j];
+            int power=l.power;
+            int rotate=l.angle;
+            Shuttle n=l.n;
+            for(int p=max(0,power-1);p<=min(4,power+1);p++)
+                for(int a=max(-90,rotate-15);a<=min(90,rotate+15);a+=5){
+                    Leaf nl;
+                    nl.parent_id=j;
+                    nl.angle=a;
+                    nl.power=p;
+                    n=n.next(a,p,gMars,m_sin);
+                    (*g).push_back(nl);
+                    cerr<<j<<":"<<(*g).size()<<endl;
+                }
+        }
     }
     
     void first(LL X,LL Y,int hSpeed,int vSpeed,int fuel,int rotate,int power){
