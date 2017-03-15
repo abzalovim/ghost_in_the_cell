@@ -1,7 +1,6 @@
 #include <iostream>
 #include <string>
 #include <vector>
-#include <map>
 #include <cmath>
 #include <algorithm>
 
@@ -18,8 +17,8 @@ using namespace std;
  **/
  
 class Mt{
-    int angles[36];
-    int anglesc[36];
+    int angles[37];
+    int anglesc[37];
     public:
         void init(){
             for(int a=-90;a<=90;a+=5){
@@ -101,10 +100,32 @@ public:
     }
 };
 
+class Delta{
+public:
+	int dx,dy,dvx,dvy;
+	void init(int _dx, int _dy, int _dvx, int _dvy){
+		dx=_dx;
+		dy=_dy;
+		dvx=_dvx;
+		dvy=_dvy;
+	}
+};
+
+class StDelta{
+public:
+	Delta mas[4*37+(90+90)/5];
+	void add(int a,int b, int dx, int dy, int dvx, int dvy){
+		mas[b*37+(90+a)/5].init(dx,dy,dvx,dvy);
+	}
+	Delta get(int a,int b){
+		return mas[b*37+(90+a)/5];
+	}
+};
+
 class Leaf{
 public:
     int parent_id;
-    Shuttle n;
+    Delta n;
     int angle;
     int power;
 };
@@ -114,7 +135,7 @@ private:
     const int MaxVx=1800;
     const int MaxVy=3800;
     const double gMars=371.1;
-    map<int,vector<Shuttle>> steps;
+    StDelta sa_sd;
     vector<int> sx,sy;
     int surfaceN;
     int ml1,ml2,my;
@@ -218,32 +239,53 @@ public:
 		}
     }
     
-    void found_way(vector<Leaf>* g, int st_id){
+    bool found_way(vector<Leaf>* g, int st_id){
         int sz=(*g).size();
-        for(int j=st_id;j<sz;j++){
+        bool founded=false;
+        for(int j=st_id;j<sz&&!founded;j++){
             Leaf l = (*g)[j];
             int power=l.power;
             int rotate=l.angle;
-            Shuttle n=l.n;
-            for(int p=max(0,power-1);p<=min(4,power+1);p++)
-                for(int a=max(-90,rotate-15);a<=min(90,rotate+15);a+=5){
+            Delta n=l.n;
+            for(int p=max(0,power-1);p<=min(4,power+1)&&!founded;p++)
+                for(int a=max(-90,rotate-15);a<=min(90,rotate+15)&&!founded;a+=5){
+					Delta da=sa_sd.get(a,p);
                     Leaf nl;
                     nl.parent_id=j;
                     nl.angle=a;
                     nl.power=p;
-                    n=n.next(a,p,gMars,m_sin);
+                    da.dvx+=n.dvx;
+                    da.dvy+=n.dvy;
+                    da.dx=n.dx+da.dvx;
+                    da.dy=n.dy+da.dvy;
+                    nl.n=da;
+                    if(da.dx<=ml2-4500&&da.dx>=ml1+4500&&da.dy<=my+15000&&abs(da.dvx)<=1900&&abs(da.dvy)<=3900){
+						founded=true;
+					}
                     (*g).push_back(nl);
                     cerr<<j<<":"<<(*g).size()<<endl;
                 }
         }
+        if(!founded)founded=found_way((g*),sz);
+        return founded;
     }
     
     void first(LL X,LL Y,int hSpeed,int vSpeed,int fuel,int rotate,int power){
         vector<Leaf> graph;
+        Shuttle t;
+        for(int p=0;p<=4;p++){
+			for(int a=-90;a<=90;a+=5){
+				t.init(0,0,0,0,0,a,p);
+				t=t.next(a,p,gMars,m_sin);
+				sa_sd.add(a,p,t.getX(),t.getY(),t.getVX(),t.getVY());
+			}
+		}
         nomad.init(X,Y,hSpeed,vSpeed,fuel,rotate,power);
         int id=0;
         Leaf l;
-        l.n=nomad;
+        Delta inp;
+        inp.init(X,Y,hSpeed,vSpeed);
+        l.n=inp;
         l.parent_id=id;
         l.angle = rotate;
         l.power = power;
